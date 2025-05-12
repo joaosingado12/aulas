@@ -1,9 +1,12 @@
 import  Router from 'express'
 import  {PrismaClient} from '../generated/prisma/index.js'
 import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
 
 const router = Router()
 const prisma = new PrismaClient()
+
+const JWT_SECRET = process.env.JWT_SECRET
 
 router.get('/', (req, res) => {
   res.send('Servidor está rodando!')
@@ -30,8 +33,11 @@ router.post('/cadastro', async (req, res) => {
 
 router.post("/login", async (req, res)=>{
   try{
+
+    //pegando os dados inseridos
     const userInfo = req.body
 
+    //verificando se o usuário existe
     const user = await prisma.user.findUnique({
       where: {"email": userInfo.email}
     })
@@ -40,13 +46,18 @@ router.post("/login", async (req, res)=>{
       return res.status(404).json({message: "Usuário não encontrado"})
     }
     
+    //verificando se a senha está correta
     const isMatch = await bcrypt.compare(userInfo.password, user.password)
     
     if(!isMatch){
       return res.status(400).json({message: "Senha inválida"})
     }
 
-    res.status(200).json({message: "Login feito com sucesso"})
+
+    //criando o token
+    const token = jwt.sign({id: user.id}, JWT_SECRET, {expiresIn: '1m'})
+
+    res.status(200).json(token)
 
   } catch (err){
     res.status(500).json({message: "Erro no servidor, tente novamente"})
